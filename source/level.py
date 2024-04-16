@@ -1,3 +1,5 @@
+import os
+
 import pygame
 from pygame.sprite import GroupSingle
 
@@ -8,17 +10,25 @@ from source.enemy import Enemy
 from source.particles import ParticleEffect
 from source.support import import_csv_layout, import_cut_graphics
 from tiles import Tile, StaticTile, Crate, Coin, Palm
+from game_data import levels
 
 
 class Level:
-    def __init__(self, level_data, surface):
+    def __init__(self, current_level, surface, create_overworld):
         # general setup
         self.display_surface = surface
         # self.setup_level(level_data)
         self.world_shift = 0
         self.current_x = None
 
+        # overworld connection
+        self.current_level = current_level
+        level_data = levels[self.current_level]
+        self.new_max_level = level_data['unlock']
+        self.create_overworld = create_overworld
+
         # player
+        print(os.getcwd())
         player_layout = import_csv_layout(level_data['player'])
         self.player = pygame.sprite.GroupSingle()
         self.goal = pygame.sprite.GroupSingle()
@@ -65,6 +75,13 @@ class Level:
         # dust
         self.dust_sprite = pygame.sprite.GroupSingle()
         self.player_on_ground = False
+
+    def input(self):
+        keys = pygame.key.get_pressed()
+        if keys[pygame.K_RETURN]:
+            self.create_overworld(self.current_level, self.new_max_level)
+        if keys[pygame.K_ESCAPE]:
+            self.create_overworld(self.current_level, 0)
 
     def player_setup(self, layout):
         for row_index, row in enumerate(layout):
@@ -223,6 +240,14 @@ class Level:
         if player.on_ceiling and (player.direction.y > 0):
             player.on_ceiling = False
 
+    def check_death(self):
+        if self.player.sprite.rect.top > screen_height:
+            self.create_overworld(self.current_level, 0)
+
+    def check_win(self):
+        if pygame.sprite.spritecollide(self.player.sprite, self.goal, False):
+            self.create_overworld(self.current_level, self.new_max_level)
+
     def run(self):
         # sky
         self.sky.draw(self.display_surface)
@@ -263,8 +288,8 @@ class Level:
         self.fg_palms_sprites.update(self.world_shift)
         self.fg_palms_sprites.draw(self.display_surface)
 
-
         self.scroll_x()
+        self.input()
 
         # player
         self.goal.update(self.world_shift)
@@ -275,5 +300,8 @@ class Level:
         self.vertical_movement_collision()
         self.create_landing_dust()
         self.player.draw(self.display_surface)
+
+        self.check_death()
+        self.check_win()
 
         self.water.draw(self.display_surface, self.world_shift)

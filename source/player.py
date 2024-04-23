@@ -27,6 +27,7 @@ class Player(pygame.sprite.Sprite):
         self.speed = 8
         self.gravity = 0.8
         self.jump_speed = -16
+        self.collision_rect = pygame.Rect(self.rect.topleft, (50, self.rect.height))
 
         # player status
         self.status = 'idle'
@@ -40,6 +41,10 @@ class Player(pygame.sprite.Sprite):
         self.invincible = False
         self.invincibility_duration = 400
         self.hurt_time = 0
+
+        # audio
+        self.jump_sound = pygame.mixer.Sound('../audio/effects/jump.wav')
+        self.hit_sound = pygame.mixer.Sound('../audio/effects/hit.wav')
 
     def import_character_assets(self):
         character_path = '../graphics/character/'
@@ -64,8 +69,13 @@ class Player(pygame.sprite.Sprite):
             self.frame_index = 0
         image = animation[int(self.frame_index)]
 
-        if not self.facing_right:
+        if self.facing_right:
+            self.image = image
+            self.rect.bottomleft = self.collision_rect.bottomleft
+        else:
             image = pygame.transform.flip(image, True, False)
+            self.rect.bottomright = self.collision_rect.bottomright
+
 
         self.image = image
 
@@ -75,21 +85,7 @@ class Player(pygame.sprite.Sprite):
             alpha = 255
         self.image.set_alpha(alpha)
 
-        # set the rect
-        if self.on_ground and self.on_right:
-            self.rect = self.image.get_rect(bottomright=self.rect.bottomright)
-        elif self.on_ground and self.on_left:
-            self.rect = self.image.get_rect(bottomleft=self.rect.bottomleft)
-        elif self.on_ground:
-            self.rect = self.image.get_rect(midbottom=self.rect.midbottom)
-        elif self.on_ceiling and self.on_right:
-            self.rect = self.image.get_rect(topright=self.rect.topright)
-        elif self.on_ceiling and self.on_left:
-            self.rect = self.image.get_rect(topleft=self.rect.topleft)
-        elif self.on_ceiling:
-            self.rect = self.image.get_rect(midtop=self.rect.midtop)
-        else:
-            self.rect = self.image.get_rect(center=self.rect.center)
+        self.rect = self.image.get_rect(midbottom = self.rect.midbottom)
 
     def run_dust_animation(self):
         if self.status == 'run' and self.on_ground:
@@ -136,13 +132,15 @@ class Player(pygame.sprite.Sprite):
 
     def apply_gravity(self):
         self.direction.y += self.gravity
-        self.rect.y += self.direction.y
+        self.collision_rect.y += self.direction.y
 
     def jump(self):
         self.direction.y = self.jump_speed
+        self.jump_sound.play()
 
     def get_demage(self):
         if not self.invincible:
+            self.hit_sound.play()
             self.change_health(-10)
             self.invincible = True
             self.hurt_time = pygame.time.get_ticks()

@@ -21,6 +21,10 @@ class Level:
         self.world_shift = 0
         self.current_x = None
 
+        # audio
+        self.coin_sound = pygame.mixer.Sound('../audio/effects/coin.wav')
+        self.stopm_sound = pygame.mixer.Sound('../audio/effects/stomp.wav')
+
         # overworld connection
         self.current_level = current_level
         level_data = levels[self.current_level]
@@ -99,7 +103,6 @@ class Level:
                                     change_health=change_health)
                     self.player.add(sprite)
                 if value == '1':
-                    print('hat goes here')
                     hat_surface = pygame.image.load('../graphics/character/hat.png')
                     sprite = StaticTile((x, y), tile_size, hat_surface)
                     self.goal.add(sprite)
@@ -204,25 +207,18 @@ class Level:
 
     def horizontal_movement_collision(self):
         player = self.player.sprite
-        player.rect.x += player.direction.x * player.speed
+        player.collision_rect.x += player.direction.x * player.speed
         collide_sprites = (self.terrain_sprites.sprites() +
                               self.fg_palms_sprites.sprites() +
                               self.crate_sprites.sprites())
         for sprite in collide_sprites:
-            if sprite.rect.colliderect(player.rect):
+            if sprite.rect.colliderect(player.collision_rect):
                 if player.direction.x < 0:
-                    player.rect.left = sprite.rect.right
+                    player.collision_rect.left = sprite.rect.right
                     player.on_left = True
-                    self.current_x = player.rect.left
                 elif player.direction.x > 0:
-                    player.rect.right = sprite.rect.left
+                    player.collision_rect.right = sprite.rect.left
                     player.on_right = True
-                    self.current_x = player.rect.right
-
-        if player.on_left and (player.rect.left < self.current_x or player.direction.x >= 0):
-            player.on_left = False
-        if player.on_right and (player.rect.right > self.current_x or player.direction.x <= 0):
-            player.on_right = False
 
     def vertical_movement_collision(self):
         player = self.player.sprite
@@ -232,20 +228,18 @@ class Level:
                               self.crate_sprites.sprites())
 
         for sprite in collide_sprites:
-            if sprite.rect.colliderect(player.rect):
+            if sprite.rect.colliderect(player.collision_rect):
                 if player.direction.y > 0:
-                    player.rect.bottom = sprite.rect.top
+                    player.collision_rect.bottom = sprite.rect.top
                     player.direction.y = 0
                     player.on_ground = True
                 elif player.direction.y < 0:
-                    player.rect.top = sprite.rect.bottom
+                    player.collision_rect.top = sprite.rect.bottom
                     player.direction.y = 0
                     player.on_ceiling = True
 
         if player.on_ground and (player.direction.y < 0 or player.direction.y > 1):
             player.on_ground = False
-        if player.on_ceiling and (player.direction.y > 0):
-            player.on_ceiling = False
 
     def check_death(self):
         if self.player.sprite.rect.top > screen_height:
@@ -258,6 +252,7 @@ class Level:
     def check_coins_collisions(self):
         collided_coins = pygame.sprite.spritecollide(self.player.sprite, self.coins_sprites, True)
         if collided_coins:
+            self.coin_sound.play()
             for coin in collided_coins:
                 self.change_coins(coin.value)
 
@@ -270,6 +265,7 @@ class Level:
                 enemy_top = enemy.rect.top
                 player_bottom = self.player.sprite.rect.bottom
                 if enemy_top < player_bottom < enemy_center and self.player.sprite.direction.y >= 0:
+                    self.stopm_sound.play()
                     self.player.sprite.direction.y = -15
                     explosion_sprite = ParticleEffect(enemy.rect.center, 'explosion')
                     self.explosion_sprites.add(explosion_sprite)

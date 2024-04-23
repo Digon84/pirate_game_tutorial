@@ -1,16 +1,19 @@
+from math import sin
+
 import pygame
 
 from support import import_folder
 
 
 class Player(pygame.sprite.Sprite):
-    def __init__(self, pos, surface, create_jump_particles):
+    def __init__(self, pos, surface, create_jump_particles, change_health):
         super().__init__()
         self.import_character_assets()
         self.frame_index = 0
         self.animation_speed = 0.15
         self.image = self.animations['idle'][self.frame_index]
         self.rect = self.image.get_rect(topleft=pos)
+        self.change_health = change_health
 
         # dust particles
         self.import_dust_run_particles()
@@ -32,6 +35,11 @@ class Player(pygame.sprite.Sprite):
         self.on_ceiling = False
         self.on_left = False
         self.on_right = False
+
+        # health managment
+        self.invincible = False
+        self.invincibility_duration = 400
+        self.hurt_time = 0
 
     def import_character_assets(self):
         character_path = '../graphics/character/'
@@ -60,6 +68,12 @@ class Player(pygame.sprite.Sprite):
             image = pygame.transform.flip(image, True, False)
 
         self.image = image
+
+        if self.invincible:
+            alpha = self.wave_value()
+        else:
+            alpha = 255
+        self.image.set_alpha(alpha)
 
         # set the rect
         if self.on_ground and self.on_right:
@@ -127,10 +141,33 @@ class Player(pygame.sprite.Sprite):
     def jump(self):
         self.direction.y = self.jump_speed
 
+    def get_demage(self):
+        if not self.invincible:
+            self.change_health(-10)
+            self.invincible = True
+            self.hurt_time = pygame.time.get_ticks()
+
+    def invincibility_timer(self):
+        if self.invincible:
+            current_time = pygame.time.get_ticks()
+            if current_time - self.hurt_time >= self.invincibility_duration:
+                self.invincible = False
+
+    def wave_value(self):
+        value = sin(pygame.time.get_ticks())
+        if value > 0:
+            return 255
+        else:
+            return 0
+
+
+
     def update(self):
         self.get_input()
         self.get_status()
         self.animate()
         self.run_dust_animation()
+        self.invincibility_timer()
+        self.wave_value()
 
 

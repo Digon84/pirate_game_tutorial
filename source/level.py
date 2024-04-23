@@ -14,7 +14,7 @@ from game_data import levels
 
 
 class Level:
-    def __init__(self, current_level, surface, create_overworld):
+    def __init__(self, current_level, surface, create_overworld, change_coins, change_health):
         # general setup
         self.display_surface = surface
         # self.setup_level(level_data)
@@ -32,7 +32,10 @@ class Level:
         player_layout = import_csv_layout(level_data['player'])
         self.player = pygame.sprite.GroupSingle()
         self.goal = pygame.sprite.GroupSingle()
-        self.player_setup(player_layout)
+        self.player_setup(player_layout, change_health)
+
+        # user interface
+        self.change_coins = change_coins
 
         # terrain setup
         terrain_layout = import_csv_layout(level_data['terrain'])
@@ -76,6 +79,9 @@ class Level:
         self.dust_sprite = pygame.sprite.GroupSingle()
         self.player_on_ground = False
 
+        # explosion particles
+        self.explosion_sprites = pygame.sprite.Group()
+
     def input(self):
         keys = pygame.key.get_pressed()
         if keys[pygame.K_RETURN]:
@@ -83,13 +89,14 @@ class Level:
         if keys[pygame.K_ESCAPE]:
             self.create_overworld(self.current_level, 0)
 
-    def player_setup(self, layout):
+    def player_setup(self, layout, change_health):
         for row_index, row in enumerate(layout):
             for column_index, value in enumerate(row):
                 x = column_index * tile_size
                 y = row_index * tile_size
                 if value == '0':
-                    sprite = Player((x, y), self.display_surface, create_jump_particles=self.create_jump_particles)
+                    sprite = Player((x, y), self.display_surface, create_jump_particles=self.create_jump_particles,
+                                    change_health=change_health)
                     self.player.add(sprite)
                 if value == '1':
                     print('hat goes here')
@@ -118,9 +125,9 @@ class Level:
                         sprite = Crate((x, y), tile_size)
                     elif tile_type == "coins":
                         if value == '0':
-                            sprite = Coin((x, y), tile_size, '../graphics/coins/gold')
+                            sprite = Coin((x, y), tile_size, '../graphics/coins/gold', 5)
                         else:
-                            sprite = Coin((x, y), tile_size, '../graphics/coins/silver')
+                            sprite = Coin((x, y), tile_size, '../graphics/coins/silver', 1)
                     elif tile_type == "fg palms":
                         if value == '1':
                             sprite = Palm((x, y), tile_size, '../graphics/terrain/palm_large', 72)
@@ -248,6 +255,28 @@ class Level:
         if pygame.sprite.spritecollide(self.player.sprite, self.goal, False):
             self.create_overworld(self.current_level, self.new_max_level)
 
+    def check_coins_collisions(self):
+        collided_coins = pygame.sprite.spritecollide(self.player.sprite, self.coins_sprites, True)
+        if collided_coins:
+            for coin in collided_coins:
+                self.change_coins(coin.value)
+
+    def check_enemy_collisions(self):
+        enemy_collisions = pygame.sprite.spritecollide(self.player.sprite, self.enemy_sprites, False)
+
+        if enemy_collisions:
+            for enemy in enemy_collisions:
+                enemy_center = enemy.rect.centery
+                enemy_top = enemy.rect.top
+                player_bottom = self.player.sprite.rect.bottom
+                if enemy_top < player_bottom < enemy_center and self.player.sprite.direction.y >= 0:
+                    self.player.sprite.direction.y = -15
+                    explosion_sprite = ParticleEffect(enemy.rect.center, 'explosion')
+                    self.explosion_sprites.add(explosion_sprite)
+                    enemy.kill()
+                else:
+                    self.player.sprite.get_demage()
+
     def run(self):
         # sky
         self.sky.draw(self.display_surface)
@@ -271,6 +300,10 @@ class Level:
         self.enemy_collision_reverse()
         self.constraint_sprites.update(self.world_shift)
         self.enemy_sprites.draw(self.display_surface)
+
+        self.check_enemy_collisions()
+        self.explosion_sprites.update(self.world_shift)
+        self.explosion_sprites.draw(self.display_surface)
 
         # crates
         self.crate_sprites.update(self.world_shift)
@@ -303,5 +336,6 @@ class Level:
 
         self.check_death()
         self.check_win()
+        self.check_coins_collisions()
 
         self.water.draw(self.display_surface, self.world_shift)

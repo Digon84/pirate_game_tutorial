@@ -13,6 +13,8 @@ class ParticleEffect(pygame.sprite.Sprite):
             self.frames = import_folder('../graphics/character/dust_particles/jump')
         if animation_type == 'land':
             self.frames = import_folder('../graphics/character/dust_particles/land')
+        if animation_type == 'explosion':
+            self.frames = import_folder('../graphics/enemy/explosion')
         self.image = self.frames[self.frame_index]
         self.rect = self.image.get_rect(center=pos)
 
